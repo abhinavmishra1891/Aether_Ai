@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "createdAt"]
+    },
+    "Generation": {
+      "title": "Generation",
+      "description": "A generated content result from the AI.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "inputIdea": { "type": "string" },
+        "output": {
+          "type": "object",
+          "properties": {
+            "hook": { "type": "string" },
+            "script": { "type": "string" },
+            "caption": { "type": "string" },
+            "hashtags": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "inputIdea", "output", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/generations/{generationId}": {
+      "schema": "Generation",
+      "description": "History of content generations."
+    }
+  }
+}

@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity Validations
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'email', 'createdAt']) &&
+             data.keys().size() == 3 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidGeneration(data) {
+      return data.keys().hasAll(['userId', 'inputIdea', 'output', 'createdAt']) &&
+             data.keys().size() == 4 &&
+             data.userId == request.auth.uid &&
+             data.inputIdea is string && data.inputIdea.size() <= 1000 &&
+             data.output is map &&
+             data.output.keys().hasAll(['hook', 'script', 'caption', 'hashtags']) &&
+             data.output.hook is string && data.output.hook.size() <= 2000 &&
+             data.output.script is string && data.output.script.size() <= 5000 &&
+             data.output.caption is string && data.output.caption.size() <= 2000 &&
+             data.output.hashtags is list && data.output.hashtags.size() <= 50 &&
+             data.createdAt == request.time;
+    }
+
+    // User Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && 
+                      isValidUser(incoming()) && 
+                      incoming().email == existing().email &&
+                      incoming().createdAt == existing().createdAt &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['name']);
+    }
+
+    // Generations Collection
+    match /generations/{generationId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidGeneration(incoming());
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}
